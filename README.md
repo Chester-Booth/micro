@@ -18,8 +18,10 @@ The find prompt also shows the selected match count as `Find (x/y):`, while all 
 
 ### Example Configuration
 
-settings.json `"hlsearch": true`
-bindings.json
+#### settings.json: 
+`"hlsearch": true`
+
+#### bindings.json
 ```json
 "command": {
         "Find": {
