@@ -656,6 +656,21 @@ The possible pane types are `buffer` (normal buffer), `command` (command bar),
 and `terminal` (terminal pane). The defaults for the command and terminal panes
 are given below:
 
+Command bar bindings can also be scoped to a prompt type by nesting them under
+the prompt type name. For example, to customize only the find prompt:
+
+```
+{
+    "command": {
+        "Find": {
+            "Down": "FindNext",
+            "Up": "FindPrevious",
+            "Enter": "FindNext"
+        }
+    }
+}
+```
+
 ```
 {
     "terminal": {

@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/micro-editor/micro/v2/internal/buffer"
 	"github.com/micro-editor/micro/v2/internal/config"
@@ -15,10 +16,12 @@ type InfoKeyAction func(*InfoPane)
 
 var InfoBindings *KeyTree
 var InfoBufBindings *KeyTree
+var PromptInfoBindings map[string]*KeyTree
 
 func init() {
 	InfoBindings = NewKeyTree()
 	InfoBufBindings = NewKeyTree()
+	PromptInfoBindings = make(map[string]*KeyTree)
 }
 
 func InfoMapEvent(k Event, action string) {
@@ -32,11 +35,32 @@ func InfoMapEvent(k Event, action string) {
 	}
 }
 
+func PromptInfoMapEvent(promptType string, k Event, action string) {
+	tree, ok := PromptInfoBindings[promptType]
+	if !ok {
+		tree = NewKeyTree()
+		PromptInfoBindings[promptType] = tree
+	}
+
+	switch e := k.(type) {
+	case KeyEvent, KeySequenceEvent, RawEvent:
+		promptInfoMapKey(tree, e, action)
+	case MouseEvent:
+		promptInfoMapMouse(tree, e, action)
+	}
+}
+
 func infoMapKey(k Event, action string) {
 	if f, ok := InfoKeyActions[action]; ok {
 		InfoBindings.RegisterKeyBinding(k, InfoKeyActionGeneral(f))
 	} else if f, ok := BufKeyActions[action]; ok {
 		InfoBufBindings.RegisterKeyBinding(k, BufKeyActionGeneral(f))
+	}
+}
+
+func promptInfoMapKey(tree *KeyTree, k Event, action string) {
+	if f, ok := InfoKeyActions[action]; ok {
+		tree.RegisterKeyBinding(k, InfoKeyActionGeneral(f))
 	}
 }
 
@@ -49,6 +73,11 @@ func infoMapMouse(k MouseEvent, action string) {
 	}
 }
 
+func promptInfoMapMouse(tree *KeyTree, k MouseEvent, action string) {
+	// TODO: map mouse
+	promptInfoMapKey(tree, k, action)
+}
+
 func InfoKeyActionGeneral(a InfoKeyAction) PaneKeyAction {
 	return func(p Pane) bool {
 		a(p.(*InfoPane))
@@ -59,6 +88,9 @@ func InfoKeyActionGeneral(a InfoKeyAction) PaneKeyAction {
 type InfoPane struct {
 	*BufPane
 	*info.InfoBuf
+
+	findPromptUseRegex      bool
+	skipPromptEventCallback bool
 }
 
 func NewInfoPane(ib *info.InfoBuf, w display.BWindow, tab *Tab) *InfoPane {
@@ -113,7 +145,9 @@ func (h *InfoPane) HandleEvent(event tcell.Event) {
 				hist[h.HistoryNum] = resp
 				h.HistorySearch = false
 			}
-			if h.EventCallback != nil {
+			if h.skipPromptEventCallback {
+				h.skipPromptEventCallback = false
+			} else if h.EventCallback != nil {
 				h.EventCallback(resp)
 			}
 		}
@@ -127,6 +161,23 @@ func (h *InfoPane) HandleEvent(event tcell.Event) {
 // to process before executing an action (if this is a key sequence event).
 // Returns false if no action found.
 func (h *InfoPane) DoKeyEvent(e KeyEvent) bool {
+	if h.HasPrompt {
+		if tree, ok := PromptInfoBindings[h.PromptType]; ok {
+			action, more := tree.NextEvent(e, nil)
+			if action != nil && !more {
+				action(h)
+				tree.ResetEvents()
+				return true
+			} else if action == nil && !more {
+				tree.ResetEvents()
+			}
+
+			if more {
+				return true
+			}
+		}
+	}
+
 	action, more := InfoBindings.NextEvent(e, nil)
 	if action != nil && !more {
 		action(h)
@@ -224,6 +275,76 @@ func (h *InfoPane) ExecuteCommand() {
 	}
 }
 
+func (h *InfoPane) updateFindPromptStatus(search string) {
+	if !h.HasPrompt || h.PromptType != "Find" {
+		return
+	}
+
+	p := MainTab().CurPane()
+	if p == nil {
+		h.Msg = "Find (0/0): "
+		return
+	}
+
+	matches, err := p.Buf.FindAll(search, h.findPromptUseRegex)
+	if err != nil || len(matches) == 0 {
+		h.Msg = "Find (0/0): "
+		return
+	}
+
+	current := 0
+	if p.Cursor.HasSelection() {
+		start := p.Cursor.CurSelection[0]
+		end := p.Cursor.CurSelection[1]
+		for i, match := range matches {
+			if match[0] == start && match[1] == end {
+				current = i + 1
+				break
+			}
+		}
+	}
+	if current == 0 {
+		current = 1
+	}
+
+	h.Msg = fmt.Sprintf("Find (%d/%d): ", current, len(matches))
+}
+
+func (h *InfoPane) findFromPrompt(searchDown bool) {
+	if !h.HasPrompt || h.PromptType != "Find" {
+		return
+	}
+
+	p := MainTab().CurPane()
+	if p == nil {
+		return
+	}
+
+	search := string(h.LineBytes(0))
+	if search == "" {
+		return
+	}
+
+	p.Buf.LastSearch = search
+	p.Buf.LastSearchRegex = h.findPromptUseRegex
+	p.Buf.HighlightSearch = p.Buf.Settings["hlsearch"].(bool)
+	if searchDown {
+		p.FindNext()
+	} else {
+		p.FindPrevious()
+	}
+	h.updateFindPromptStatus(search)
+	h.skipPromptEventCallback = true
+}
+
+func (h *InfoPane) FindNext() {
+	h.findFromPrompt(true)
+}
+
+func (h *InfoPane) FindPrevious() {
+	h.findFromPrompt(false)
+}
+
 // AbortCommand cancels the prompt
 func (h *InfoPane) AbortCommand() {
 	h.DonePrompt(true)
@@ -237,5 +358,7 @@ var InfoKeyActions = map[string]InfoKeyAction{
 	"HistorySearchDown": (*InfoPane).HistorySearchDown,
 	"CommandComplete":   (*InfoPane).CommandComplete,
 	"ExecuteCommand":    (*InfoPane).ExecuteCommand,
+	"FindNext":          (*InfoPane).FindNext,
+	"FindPrevious":      (*InfoPane).FindPrevious,
 	"AbortCommand":      (*InfoPane).AbortCommand,
 }

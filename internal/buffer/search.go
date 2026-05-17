@@ -147,6 +147,33 @@ func (b *Buffer) findAll(r *regexp.Regexp, start, end Loc) [][2]Loc {
 	return matches
 }
 
+// FindAll finds all occurrences of a given string in the buffer.
+// May return an error if the search regex is invalid.
+func (b *Buffer) FindAll(s string, useRegex bool) ([][2]Loc, error) {
+	if s == "" {
+		return nil, nil
+	}
+
+	var r *regexp.Regexp
+	var err error
+
+	if !useRegex {
+		s = regexp.QuoteMeta(s)
+	}
+
+	if b.Settings["ignorecase"].(bool) {
+		r, err = regexp.Compile("(?i)" + s)
+	} else {
+		r, err = regexp.Compile(s)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return b.findAll(r, b.Start(), b.End()), nil
+}
+
 // FindNext finds the next occurrence of a given string in the buffer
 // It returns the start and end location of the match (if found) and
 // a boolean indicating if it was found

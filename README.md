@@ -10,6 +10,29 @@
 **micro** is a terminal-based text editor that aims to be easy to use and intuitive, while also taking advantage of the capabilities
 of modern terminals. It comes as a single, batteries-included, static binary with no dependencies; you can download and use it right now!
 
+## Fork Notes
+
+This fork just tracks upstresm Micro and adds some prompt-specific find bindings for my local workflow. The command bar can bind keys only for the `Find` prompt, allowing `Down` and `Enter` to move to the next match and `Up` to move to the previous match without changing other command prompts.
+
+The find prompt also shows the selected match count as `Find (x/y):`, while all matches can remain highlighted via `hlsearch`.
+
+### Example Configuration
+
+settings.json `"hlsearch": true`
+bindings.json
+```json
+"command": {
+        "Find": {
+            "Down": "FindNext",
+            "Up": "FindPrevious",
+            "Enter": "FindNext"
+        }
+    }
+```
+
+
+## Info
+
 As its name indicates, micro aims to be somewhat of a successor to the nano editor by being easy to install and use.
 It strives to be enjoyable as a full-time editor for people who prefer to work in a terminal, or those who regularly edit files over SSH.
 

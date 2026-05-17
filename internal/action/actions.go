@@ -1136,6 +1136,7 @@ func (h *BufPane) find(useRegex bool) bool {
 				h.GotoLoc(h.searchOrig)
 				h.Cursor.ResetSelection()
 			}
+			InfoBar.updateFindPromptStatus(resp)
 		}
 	}
 	findCallback := func(resp string, canceled bool) {
@@ -1169,6 +1170,8 @@ func (h *BufPane) find(useRegex bool) bool {
 		eventCallback(pattern)
 	}
 	InfoBar.Prompt(prompt, pattern, "Find", eventCallback, findCallback)
+	InfoBar.findPromptUseRegex = useRegex
+	InfoBar.updateFindPromptStatus(pattern)
 	if pattern != "" {
 		InfoBar.SelectAll()
 	}

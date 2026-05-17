@@ -73,11 +73,24 @@ func InitBindings() {
 				continue
 			}
 			for e, a := range val {
-				s, ok := a.(string)
-				if !ok {
-					screen.TermMessage("Error reading bindings.json: non-string and non-map entry", k)
-				} else {
+				if s, ok := a.(string); ok {
 					BindKey(e, s, bind)
+					continue
+				}
+
+				promptBindings, ok := a.(map[string]any)
+				if !ok || k != "command" {
+					screen.TermMessage("Error reading bindings.json: non-string and non-map entry", k)
+					continue
+				}
+
+				for pe, pa := range promptBindings {
+					s, ok := pa.(string)
+					if !ok {
+						screen.TermMessage("Error reading bindings.json: non-string prompt binding entry", e)
+						continue
+					}
+					BindPromptKey(e, pe, s)
 				}
 			}
 		default:
@@ -109,6 +122,20 @@ func BindKey(k, v string, bind func(e Event, a string)) {
 	// case RawEvent:
 	// 	InfoMapKey(e, v)
 	// }
+}
+
+func BindPromptKey(promptType, k, v string) {
+	event, err := findEvent(k)
+	if err != nil {
+		screen.TermMessage(err)
+		return
+	}
+
+	if strings.HasPrefix(k, "\x1b") {
+		screen.RegisterRawSeq(k)
+	}
+
+	PromptInfoMapEvent(promptType, event, v)
 }
 
 var r = regexp.MustCompile("<(.+?)>")
