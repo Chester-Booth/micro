@@ -12,7 +12,7 @@ of modern terminals. It comes as a single, batteries-included, static binary wit
 
 ## Fork Notes
 
-This fork just tracks upstresm Micro and adds some prompt-specific find bindings for my local workflow. The command bar can bind keys only for the `Find` prompt, allowing `Down` and `Enter` to move to the next match and `Up` to move to the previous match without changing other command prompts.
+This fork just tracks upstresm Micro and adds some prompt-specific find bindings for my workflow. The command bar can bind keys only for the `Find` prompt, allowing `Down` and `Enter` to move to the next match and `Up` to move to the previous match without changing other command prompts.
 
 The find prompt also shows the selected match count as `Find (x/y):`, while all matches can remain highlighted via `hlsearch`.
 
